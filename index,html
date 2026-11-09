@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Susun Pseudocode - Kelas 9</title>
+    
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter for UI, JetBrains Mono for Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    
+    <!-- SortableJS for Touch-friendly Drag and Drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .font-mono { 
+            font-family: 'JetBrains Mono', monospace; 
+        }
+
+        /* Drag and Drop Visual Feedback Classes */
+        .ghost-class { 
+            opacity: 0.4; 
+            background-color: #eef2ff !important; 
+            border: 2px dashed #6366f1 !important;
+        }
+        
+        .drag-handle { 
+            cursor: grab; 
+            touch-action: none; /* Prevent scroll while dragging on touch screens */
+        }
+        
+        .drag-handle:active { 
+            cursor: grabbing; 
+        }
+
+        /* Empty state placeholders for lists */
+        #answer-list:empty::before {
+            content: "Tarik (drag) potongan langkah ke kotak ini...";
+            color: #9ca3af;
+            text-align: center;
+            margin-top: 2.5rem;
+            font-style: italic;
+            display: block;
+        }
+        
+        #pool-list:empty::before {
+            content: "Semua langkah telah dipindahkan.";
+            color: #9ca3af;
+            text-align: center;
+            margin-top: 2.5rem;
+            font-style: italic;
+            display: block;
+        }
+
+        /* Success Animation when answer is correct */
+        @keyframes successPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); background-color: #d1fae5; border-color: #10b981; }
+            100% { transform: scale(1); }
+        }
+        .success-anim { 
+            animation: successPop 0.5s ease-in-out; 
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+        }
+
+        /* Case Card Hover Effect */
+        .case-card { transition: all 0.2s ease-in-out; }
+        .case-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4 flex flex-col">
+
+    <!-- View 1: Menu Pemilihan Kasus -->
+    <div id="menu-view" class="max-w-5xl mx-auto w-full fade-in">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-t-2xl text-white text-center shadow-lg">
+            <h1 class="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">Game Susun Algoritma</h1>
+            <p class="text-indigo-100 font-medium text-lg">Materi Informatika Kelas 9 SMP - Algoritma Runtunan</p>
+        </div>
+        <div class="bg-white p-6 md:p-10 rounded-b-2xl shadow-xl border border-t-0 border-gray-200">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">Pilih Studi Kasus</h2>
+                <p class="text-gray-500 mt-2">Pilih salah satu kasus di bawah ini untuk mulai berlatih menyusun langkah yang benar.</p>
+            </div>
+            
+            <div id="cases-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Case cards will be injected here via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- View 2: Area Kerja (Game View) -->
+    <div id="game-view" class="max-w-5xl mx-auto w-full hidden">
+        <div class="mb-4">
+            <button id="btn-back-menu" class="flex items-center gap-2 text-indigo-700 hover:text-indigo-900 font-semibold transition-colors bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 w-max">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Kembali ke Menu Pilihan
+            </button>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            
+            <div class="p-5 md:p-8">
+                <!-- Level Title & Instructions -->
+                <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <span id="case-icon" class="text-3xl"></span>
+                            <h2 id="level-title" class="text-2xl font-extrabold text-gray-800">Judul Kasus</h2>
+                        </div>
+                        <p id="level-desc" class="text-gray-600 text-sm md:text-base mt-2"></p>
+                    </div>
+                    <span id="case-badge" class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-bold uppercase tracking-wider whitespace-nowrap self-start md:self-center">Tipe</span>
+                </div>
+                
+                <!-- Notification Banner -->
+                <div id="notification" class="hidden rounded-lg p-4 mb-6 flex items-start gap-3 shadow-sm transition-all border-l-4">
+                    <div id="notif-icon" class="mt-0.5"></div>
+                    <div class="flex-1">
+                        <p id="notif-title" class="font-bold text-sm md:text-base"></p>
+                        <p id="notif-message" class="text-sm md:text-base mt-1"></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                    
+                    <!-- Left Column: Available Blocks (Pool) -->
+                    <div class="bg-gray-50 rounded-xl border-2 border-gray-200 p-4 min-h-[400px] flex flex-col shadow-inner">
+                        <div class="flex items-center gap-2 mb-4 text-gray-700 border-b border-gray-200 pb-3">
+                            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            <h3 class="font-bold text-lg">Potongan Langkah</h3>
+                        </div>
+                        <div id="pool-list" class="flex-1 flex flex-col gap-2 min-h-[300px]">
+                            <!-- Draggable blocks will be injected here via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Answer Area -->
+                    <div class="bg-indigo-50/40 rounded-xl border-2 border-indigo-300 border-dashed p-4 min-h-[400px] flex flex-col relative">
+                        <div class="flex items-center gap-2 mb-4 text-indigo-800 border-b border-indigo-200 pb-3">
+                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                            <h3 class="font-bold text-lg">Area Susun Jawaban</h3>
+                        </div>
+                        <div id="answer-list" class="flex-1 flex flex-col gap-2 min-h-[300px]">
+                            <!-- Correct ordered blocks drop here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                    <button id="btn-reset" class="px-6 py-3.5 rounded-lg font-bold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors focus:ring-4 focus:ring-gray-100 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Ulangi Susunan
+                    </button>
+                    <button id="btn-check" class="px-8 py-3.5 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-500/30 focus:ring-4 focus:ring-blue-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Cek Jawaban Saya
+                    </button>
+                    <button id="btn-finish" class="hidden px-8 py-3.5 rounded-lg font-bold text-white bg-green-600 hover:bg-green-700 transition-all shadow-lg hover:shadow-green-500/30 focus:ring-4 focus:ring-green-300 flex items-center justify-center gap-2">
+                        Selesai & Pilih Kasus Lain
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Definisikan Data Kasus (4 Pilihan)
+        const caseData = [
+            {
+                id: 0,
+                title: "Belanja Online",
+                type: "Algoritma Sehari-hari",
+                icon: "🛒",
+                color: "bg-orange-500",
+                description: "Pindahkan dan susun potongan langkah sehingga membentuk urutan algoritma aktivitas belanja online yang logis dan benar.",
+                blocks: [
+                    { id: "c1_1", text: "MULAI" },
+                    { id: "c1_2", text: "Buka aplikasi toko online" },
+                    { id: "c1_3", text: "Cari dan pilih barang yang diinginkan" },
+                    { id: "c1_4", text: "Masukkan barang ke keranjang" },
+                    { id: "c1_5", text: "Checkout pesanan & isi alamat pengiriman" },
+                    { id: "c1_6", text: "Pilih metode pembayaran & bayar" },
+                    { id: "c1_7", text: "SELESAI" }
+                ]
+            },
+            {
+                id: 1,
+                title: "Menghitung Penjualan",
+                type: "Pseudocode",
+                icon: "💰",
+                color: "bg-emerald-500",
+                description: "Susunlah potongan langkah berikut menjadi Pseudocode untuk menghitung Total Penjualan (tanpa kondisi percabangan).",
+                blocks: [
+                    { id: "c2_1", text: "MULAI" },
+                    { id: "c2_2", text: "INPUT harga_barang" },
+                    { id: "c2_3", text: "INPUT jumlah_barang" },
+                    { id: "c2_4", text: "total_penjualan = harga_barang * jumlah_barang" },
+                    { id: "c2_5", text: "PRINT total_penjualan" },
+                    { id: "c2_6", text: "SELESAI" }
+                ]
+            },
+            {
+                id: 2,
+                title: "Memasak Mie Instan",
+                type: "Algoritma Sehari-hari",
+                icon: "🍜",
+                color: "bg-amber-500",
+                description: "Susunlah algoritma cara memasak mie instan kuah dengan urutan yang masuk akal dan benar.",
+                blocks: [
+                    { id: "c3_1", text: "MULAI" },
+                    { id: "c3_2", text: "Rebus air dalam panci hingga mendidih" },
+                    { id: "c3_3", text: "Masukkan mie ke dalam air mendidih" },
+                    { id: "c3_4", text: "Siapkan bumbu di dalam mangkuk" },
+                    { id: "c3_5", text: "Tuangkan mie dan kuah ke dalam mangkuk" },
+                    { id: "c3_6", text: "Aduk hingga bumbu merata" },
+                    { id: "c3_7", text: "SELESAI" }
+                ]
+            },
+            {
+                id: 3,
+                title: "Luas Segitiga",
+                type: "Pseudocode",
+                icon: "📐",
+                color: "bg-blue-500",
+                description: "Susunlah Pseudocode untuk menghitung luas segitiga. Ingat rumus luas segitiga adalah 1/2 x alas x tinggi.",
+                blocks: [
+                    { id: "c4_1", text: "MULAI" },
+                    { id: "c4_2", text: "INPUT alas" },
+                    { id: "c4_3", text: "INPUT tinggi" },
+                    { id: "c4_4", text: "luas = 0.5 * alas * tinggi" },
+                    { id: "c4_5", text: "PRINT luas" },
+                    { id: "c4_6", text: "SELESAI" }
+                ]
+            },
+            {
+                id: 4,
+                title: "Tarik Tunai ATM",
+                type: "Algoritma Sehari-hari",
+                icon: "💳",
+                color: "bg-purple-500",
+                description: "Susunlah langkah-langkah algoritma untuk melakukan tarik tunai di mesin ATM dengan urutan yang aman dan benar.",
+                blocks: [
+                    { id: "c5_1", text: "MULAI" },
+                    { id: "c5_2", text: "Masukkan kartu ATM ke dalam mesin" },
+                    { id: "c5_3", text: "Masukkan PIN ATM" },
+                    { id: "c5_4", text: "Pilih menu Tarik Tunai dan masukkan nominal" },
+                    { id: "c5_5", text: "Ambil uang yang keluar dari mesin" },
+                    { id: "c5_6", text: "Ambil kembali kartu ATM" },
+                    { id: "c5_7", text: "SELESAI" }
+                ]
+            },
+            {
+                id: 5,
+                title: "Uang Kembalian",
+                type: "Pseudocode",
+                icon: "💵",
+                color: "bg-teal-500",
+                description: "Susunlah pseudocode untuk program kasir sederhana yang menghitung uang kembalian pelanggan.",
+                blocks: [
+                    { id: "c6_1", text: "MULAI" },
+                    { id: "c6_2", text: "INPUT total_belanja" },
+                    { id: "c6_3", text: "INPUT uang_dibayar" },
+                    { id: "c6_4", text: "kembalian = uang_dibayar - total_belanja" },
+                    { id: "c6_5", text: "PRINT kembalian" },
+                    { id: "c6_6", text: "SELESAI" }
+                ]
+            }
+        ];
+
+        // 2. Variabel State Game
+        let currentCase = null;
+        let sortablePool, sortableAnswer;
+
+        // Mapping Elemen DOM (Menu)
+        const viewMenu = document.getElementById('menu-view');
+        const casesGrid = document.getElementById('cases-grid');
+        
+        // Mapping Elemen DOM (Game)
+        const viewGame = document.getElementById('game-view');
+        const btnBackMenu = document.getElementById('btn-back-menu');
+        const elLevelTitle = document.getElementById('level-title');
+        const elLevelDesc = document.getElementById('level-desc');
+        const elCaseIcon = document.getElementById('case-icon');
+        const elCaseBadge = document.getElementById('case-badge');
+        
+        const elPoolList = document.getElementById('pool-list');
+        const elAnswerList = document.getElementById('answer-list');
+        const elBtnCheck = document.getElementById('btn-check');
+        const elBtnReset = document.getElementById('btn-reset');
+        const elBtnFinish = document.getElementById('btn-finish');
+        
+        const elNotification = document.getElementById('notification');
+        const elNotifTitle = document.getElementById('notif-title');
+        const elNotifMessage = document.getElementById('notif-message');
+        const elNotifIcon = document.getElementById('notif-icon');
+
+        // Fungsi Render Menu Utama
+        function renderMenu() {
+            casesGrid.innerHTML = '';
+            caseData.forEach(c => {
+                const card = document.createElement('div');
+                card.className = "case-card bg-gray-50 border-2 border-gray-200 rounded-2xl p-6 flex flex-col h-full cursor-pointer";
+                card.onclick = () => loadCase(c.id);
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 ${c.color} rounded-xl flex items-center justify-center text-3xl shadow-md text-white">
+                            ${c.icon}
+                        </div>
+                        <span class="text-xs font-bold uppercase tracking-wider px-3 py-1 bg-gray-200 text-gray-700 rounded-full">${c.type}</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">${c.title}</h3>
+                    <p class="text-gray-600 text-sm flex-1 mb-6">${c.description}</p>
+                    <button class="w-full py-3 bg-white border-2 border-indigo-500 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 hover:text-indigo-700 transition-colors mt-auto">
+                        Pilih Kasus Ini
+                    </button>
+                `;
+                casesGrid.appendChild(card);
+            });
+        }
+
+        // Fungsi Tampilkan/Sembunyikan View
+        function showView(viewName) {
+            if (viewName === 'menu') {
+                viewMenu.classList.remove('hidden');
+                viewGame.classList.add('hidden');
+            } else if (viewName === 'game') {
+                viewMenu.classList.add('hidden');
+                viewGame.classList.remove('hidden');
+            }
+        }
+
+        // Fungsi Acak Array (Fisher-Yates Shuffle)
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // Fungsi Memuat Kasus ke Workspace
+        function loadCase(index) {
+            currentCase = caseData[index];
+            showView('game');
+            
+            // Update Teks UI
+            elLevelTitle.textContent = currentCase.title;
+            elLevelDesc.textContent = currentCase.description;
+            elCaseIcon.textContent = currentCase.icon;
+            elCaseBadge.textContent = currentCase.type;
+            
+            // Bersihkan Area
+            elPoolList.innerHTML = '';
+            elAnswerList.innerHTML = '';
+            hideNotification();
+            
+            // Atur Tombol
+            elBtnFinish.classList.add('hidden');
+            elBtnCheck.classList.remove('hidden');
+
+            // Acak Block dan Render ke Kolom Kiri (Pool)
+            const shuffledBlocks = shuffleArray(currentCase.blocks);
+            shuffledBlocks.forEach(block => {
+                const blockDiv = createBlockElement(block);
+                elPoolList.appendChild(blockDiv);
+            });
+
+            // Inisialisasi library Drag and Drop (SortableJS)
+            initSortable();
+        }
+
+        // Pembuatan Elemen Block UI
+        function createBlockElement(block) {
+            const div = document.createElement('div');
+            div.className = "p-3.5 bg-white border-2 border-gray-200 rounded-lg shadow-sm drag-handle flex items-center gap-3 transition-colors hover:border-indigo-400 group";
+            div.dataset.id = block.id;
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = "text-gray-400 group-hover:text-indigo-500 cursor-grab active:cursor-grabbing";
+            iconDiv.innerHTML = `<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM20 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM20 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>`;
+            
+            const textSpan = document.createElement('span');
+            textSpan.className = "font-mono font-medium text-gray-800 text-sm md:text-base tracking-tight";
+            textSpan.textContent = block.text;
+
+            div.appendChild(iconDiv);
+            div.appendChild(textSpan);
+            
+            return div;
+        }
+
+        function initSortable() {
+            if (sortablePool) sortablePool.destroy();
+            if (sortableAnswer) sortableAnswer.destroy();
+
+            const commonConfig = {
+                group: 'shared',
+                animation: 200,
+                ghostClass: 'ghost-class',
+                easing: "cubic-bezier(1, 0, 0, 1)"
+            };
+
+            sortablePool = new Sortable(elPoolList, commonConfig);
+            sortableAnswer = new Sortable(elAnswerList, commonConfig);
+        }
+
+        // Fungsi Mengecek Kebenaran Susunan
+        function checkAnswer() {
+            if (!currentCase) return;
+            
+            const expectedIds = currentCase.blocks.map(b => b.id);
+            const currentItems = Array.from(elAnswerList.children);
+            const currentIds = currentItems.map(item => item.dataset.id);
+            
+            // Validasi 1: Belum selesai pindah
+            if (currentIds.length !== expectedIds.length) {
+                showNotification(
+                    "Belum Selesai!", 
+                    "Pastikan semua potongan langkah dari kolom kiri ditarik (drag) ke kolom Area Susun Jawaban terlebih dahulu.", 
+                    "error"
+                );
+                return;
+            }
+            
+            // Validasi 2: Cek Urutan
+            let isCorrect = true;
+            for (let i = 0; i < expectedIds.length; i++) {
+                if (currentIds[i] !== expectedIds[i]) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+            
+            if (isCorrect) {
+                currentItems.forEach(item => {
+                    item.classList.remove('border-gray-200');
+                    item.classList.add('success-anim');
+                });
+                
+                elBtnCheck.classList.add('hidden');
+                elBtnFinish.classList.remove('hidden');
+                
+                showNotification("Hebat Sekali! 🎉", "Susunan algoritma/pseudocode kamu sudah benar dan logis. Kamu bisa kembali memilih kasus lainnya.", "success");
+                
+                sortablePool.option("disabled", true);
+                sortableAnswer.option("disabled", true);
+            } else {
+                showNotification("Ops, Belum Tepat 🤔", "Coba periksa lagi urutan langkahnya, masih ada yang tertukar letaknya.", "error");
+            }
+        }
+
+        // Fungsi Menampilkan Notifikasi
+        function showNotification(title, message, type) {
+            elNotification.classList.remove('hidden', 'bg-red-50', 'text-red-900', 'border-red-400', 'bg-green-50', 'text-green-900', 'border-green-400');
+            
+            if (type === 'error') {
+                elNotification.classList.add('bg-red-50', 'text-red-900', 'border-red-400');
+                elNotifIcon.innerHTML = `<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+            } else {
+                elNotification.classList.add('bg-green-50', 'text-green-900', 'border-green-400');
+                elNotifIcon.innerHTML = `<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            }
+            
+            elNotifTitle.textContent = title;
+            elNotifMessage.textContent = message;
+        }
+
+        function hideNotification() {
+            elNotification.classList.add('hidden');
+        }
+
+        // Event Listeners
+        elBtnCheck.addEventListener('click', checkAnswer);
+        
+        elBtnReset.addEventListener('click', () => {
+            if (currentCase) loadCase(currentCase.id);
+        });
+        
+        elBtnFinish.addEventListener('click', () => {
+            showView('menu');
+        });
+        
+        btnBackMenu.addEventListener('click', () => {
+            showView('menu');
+        });
+
+        // Inisialisasi Awal
+        window.onload = () => {
+            renderMenu();
+            showView('menu');
+        };
+    </script>
+</body>
+</html>
